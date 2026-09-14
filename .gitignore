@@ -4,7 +4,7 @@ api/target/
 web/node_modules/
 web/dist/
 # runtime data (sqlite + uploads)
-data/
-api/data/
+/data/
+/api/data/
 .env
 .DS_Store
