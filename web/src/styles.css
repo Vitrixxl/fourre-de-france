@@ -35,6 +35,15 @@ body {
 
 button { font: inherit; color: inherit; cursor: pointer; }
 
+/* Lucide icons sit on the text baseline everywhere. */
+.lucide { display: inline-block; vertical-align: -0.2em; flex: none; }
+.btn, .chip, .picker__badge, .topbar__tagline, .toast, .hint { display: inline-flex; align-items: center; gap: 0.4em; }
+.hint, .topbar__tagline { display: inline-flex; }
+.dialog__emoji, .loading__spinner, .panel__placeholder { display: inline-flex; align-items: center; justify-content: center; color: #f28bb0; }
+.team-card__emoji { color: var(--team); }
+.map__pin-boom { color: #f5a623; background: #fff; border-radius: 50%; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.18); display: inline-flex; }
+.confetti span { display: inline-flex; }
+
 /* --- typography --------------------------------------------------------- */
 .title {
   font-family: var(--font-display);
@@ -68,6 +77,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* --- buttons ------------------------------------------------------------ */
 .btn {
+  justify-content: center;
   border: 0;
   border-radius: 999px;
   padding: 0.85rem 1.6rem;
@@ -156,7 +166,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .team-card:nth-child(2) { animation-delay: 0.1s; }
 .team-card:hover { transform: translateY(-6px) rotate(-1deg); box-shadow: 0 20px 44px rgba(122, 92, 138, 0.22); }
-.team-card__emoji { position: absolute; top: 14px; right: 18px; font-size: 1.6rem; }
+.team-card__emoji { position: absolute; top: 14px; right: 16px; display: inline-flex; }
 .team-card__avatar { margin-bottom: 0.4rem; }
 .team-card__label { color: var(--ink-soft); font-weight: 800; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; }
 .team-card__names { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; }
@@ -274,10 +284,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .map__pin-boom {
   position: absolute;
-  top: -12px;
-  right: -14px;
-  font-size: 1.1rem;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+  top: -8px;
+  right: -10px;
 }
 @keyframes pop {
   from { transform: translate(-50%, -50%) scale(0); }
@@ -318,7 +326,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   line-height: 1;
 }
 .panel__head { display: flex; align-items: center; gap: 0.9rem; padding-right: 1.5rem; }
-.panel__placeholder { font-size: 2.4rem; }
+.panel__placeholder { width: 56px; height: 56px; border-radius: 50%; background: var(--lemon); color: #b8892a; flex: none; }
 .panel__title { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.35rem; }
 .panel__status { margin: 0.15rem 0 0; color: var(--ink-soft); font-weight: 700; font-size: 0.92rem; }
 .panel__actions { display: flex; justify-content: center; gap: 0.75rem; }
@@ -340,7 +348,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   to { opacity: 1; transform: none; }
 }
 .dialog__body { padding: 2rem 1.6rem 1.6rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
-.dialog__emoji { font-size: 3rem; line-height: 1; }
+.dialog__emoji { width: 72px; height: 72px; margin: 0 auto; border-radius: 50%; background: var(--lemon); color: #f28bb0; }
 .dialog h2 { margin: 0.5rem 0 0; font-family: var(--font-display); font-weight: 600; font-size: 1.7rem; }
 .dialog__region { margin: 0; color: var(--ink-soft); font-weight: 700; }
 .dialog__actions { display: flex; justify-content: center; gap: 0.75rem; margin-top: 1.2rem; }
@@ -357,7 +365,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--ink-soft);
   font-weight: 700;
 }
-.loading__spinner { font-size: 3rem; animation: spin 1.2s ease-in-out infinite; }
+.loading__spinner { animation: spin 1.2s ease-in-out infinite; }
 @keyframes spin { 50% { transform: rotate(180deg) scale(1.2); } }
 .error { color: #c0506e; }
 
@@ -381,7 +389,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .confetti span {
   position: absolute;
   top: -10%;
-  font-size: 1.8rem;
   animation: fall linear both;
 }
 @keyframes fall {
@@ -393,6 +400,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .topbar__tagline { display: none; }
   .stage { padding-bottom: 12rem; }
   .score__name { display: none; }
-  .chip span:last-child { display: none; }
+  .chip__label { display: none; }
   .chip { padding-right: 0.4rem; }
 }

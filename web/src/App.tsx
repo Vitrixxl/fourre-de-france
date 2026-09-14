@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Camera, Cherry, Flower2, Heart, PartyPopper, RefreshCw, Sparkles, Star, Zap } from "lucide-react";
 import { api, type Region, type Team } from "./api";
 import FranceMap from "./components/FranceMap";
 import RegionPanel from "./components/RegionPanel";
@@ -12,7 +13,8 @@ export default function App() {
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [teamId, setTeamId] = useState<number | null>(() => {
-    const raw = localStorage.getItem(TEAM_KEY);
+    // ?team=1 pre-selects a team (handy for sharing a link), otherwise the last choice.
+    const raw = new URLSearchParams(location.search).get("team") ?? localStorage.getItem(TEAM_KEY);
     return raw ? Number(raw) : null;
   });
   const [selected, setSelected] = useState<string | null>(null);
@@ -105,7 +107,7 @@ export default function App() {
   if (!teams) {
     return (
       <main className="loading">
-        <span className="loading__spinner">💥</span>
+        <span className="loading__spinner"><Zap size={44} strokeWidth={2.5} /></span>
         {error ? <p className="error">{error}</p> : <p>Chargement de la tournée…</p>}
       </main>
     );
@@ -118,7 +120,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar__brand">
           <h1 className="title title--small">Fourre de France</h1>
-          <span className="topbar__tagline">Smashez toutes les régions 💥</span>
+          <span className="topbar__tagline">Smashez toutes les régions <Zap size={13} strokeWidth={2.5} /></span>
         </div>
 
         <div className="scores">
@@ -134,10 +136,10 @@ export default function App() {
         <div className="topbar__me">
           <button className="chip" onClick={() => fileInput.current?.click()} title="Changer la photo de l'équipe">
             <TeamAvatar team={team} size={28} />
-            <span>📸 Photo</span>
+            <Camera size={16} /> <span className="chip__label">Photo</span>
           </button>
           <button className="chip" onClick={changeTeam}>
-            🔁 Changer d'équipe
+            <RefreshCw size={16} /> <span className="chip__label">Changer d'équipe</span>
           </button>
           <input
             ref={fileInput}
@@ -155,7 +157,7 @@ export default function App() {
 
       {error && (
         <div className="toast" role="alert" onClick={() => setError(null)}>
-          ⚠️ {error}
+          <AlertTriangle size={18} /> {error}
         </div>
       )}
 
@@ -173,7 +175,7 @@ export default function App() {
           />
         )}
         {!selectedRegion && (
-          <p className="hint">Touchez une région pour la smasher ✨</p>
+          <p className="hint">Touchez une région pour la smasher <Sparkles size={16} /></p>
         )}
       </main>
 
@@ -190,14 +192,16 @@ export default function App() {
   );
 }
 
-const CONFETTI = ["💥", "🎉", "✨", "💖", "🌸", "⭐", "🫶", "🍑"];
+const CONFETTI = [Zap, PartyPopper, Sparkles, Heart, Flower2, Star, Cherry];
+const CONFETTI_COLORS = ["#f28bb0", "#9cc4f2", "#f5c86e", "#8fd9b6", "#c9a7ff", "#ffb86c"];
 
 function Confetti() {
   const pieces = useMemo(
     () =>
       Array.from({ length: 24 }, (_, i) => ({
         id: i,
-        emoji: CONFETTI[i % CONFETTI.length],
+        Icon: CONFETTI[i % CONFETTI.length],
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
         x: Math.random() * 100,
         delay: Math.random() * 0.4,
         dur: 1.4 + Math.random() * 1.2,
@@ -215,9 +219,10 @@ function Confetti() {
             animationDelay: `${p.delay}s`,
             animationDuration: `${p.dur}s`,
             ["--rot" as string]: `${p.rot}deg`,
+            color: p.color,
           }}
         >
-          {p.emoji}
+          <p.Icon size={28} strokeWidth={2.5} />
         </span>
       ))}
     </div>

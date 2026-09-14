@@ -1,5 +1,6 @@
 import { MAP_VIEWBOX, REGIONS } from "../data/regions";
 import type { Region, Team } from "../api";
+import { Zap } from "lucide-react";
 import TeamAvatar from "./TeamAvatar";
 
 interface Props {
@@ -95,7 +96,7 @@ export default function FranceMap({ regions, teams, selected, onSelect }: Props)
             }}
           >
             <TeamAvatar team={team} size={40} title={`${shape.name} — ${team.name}`} />
-            <span className="map__pin-boom" aria-hidden>💥</span>
+            <span className="map__pin-boom" aria-hidden><Zap size={14} strokeWidth={2.5} /></span>
           </div>
         );
       })}

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Zap } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -31,7 +32,7 @@ export default function SmashDialog({ open, regionName, busy, onYes, onNope }: P
       }}
     >
       <div className="dialog__body">
-        <span className="dialog__emoji" aria-hidden>💥</span>
+        <span className="dialog__emoji" aria-hidden><Zap size={40} strokeWidth={2.5} /></span>
         <h2>Did you smash here?</h2>
         <p className="dialog__region">{regionName}</p>
         <div className="dialog__actions">

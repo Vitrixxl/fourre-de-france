@@ -1,4 +1,5 @@
 import type { Region, Team } from "../api";
+import { MapPinned, X, Zap } from "lucide-react";
 import TeamAvatar from "./TeamAvatar";
 
 interface Props {
@@ -20,10 +21,10 @@ export default function RegionPanel({ region, team, smasher, busy, onSmash, onUn
   return (
     <section className="panel" aria-live="polite">
       <button className="panel__close" onClick={onClose} aria-label="Fermer">
-        ×
+        <X size={22} />
       </button>
       <div className="panel__head">
-        {smasher ? <TeamAvatar team={smasher} size={56} /> : <span className="panel__placeholder">🗺️</span>}
+        {smasher ? <TeamAvatar team={smasher} size={56} /> : <span className="panel__placeholder"><MapPinned size={30} strokeWidth={2} /></span>}
         <div>
           <h2 className="panel__title">{region.name}</h2>
           <p className="panel__status">
@@ -40,7 +41,7 @@ export default function RegionPanel({ region, team, smasher, busy, onSmash, onUn
           </button>
         ) : (
           <button className="btn btn--smash" onClick={onSmash} disabled={busy}>
-            Smashed 💥
+            Smashed <Zap size={20} strokeWidth={2.5} />
           </button>
         )}
       </div>
