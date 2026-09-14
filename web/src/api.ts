@@ -6,12 +6,23 @@ export interface Team {
   photo_url: string | null;
 }
 
+/** 1 = smashed, 2 = butt smashed */
+export type SmashLevel = 1 | 2;
+
+export interface Smash {
+  team_id: number;
+  level: SmashLevel;
+  smashed_at: string;
+  photo_url: string | null;
+}
+
 export interface Region {
   code: string;
   name: string;
-  smashed_by: number | null;
-  smashed_at: string | null;
+  smashes: Smash[];
 }
+
+export const POINTS: Record<SmashLevel, number> = { 1: 1, 2: 2 };
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -31,14 +42,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export const api = {
   teams: () => request<Team[]>("/api/teams"),
   regions: () => request<Region[]>("/api/regions"),
-  smash: (code: string, teamId: number) =>
+  smash: (code: string, teamId: number, level: SmashLevel = 1) =>
     request<Region>(`/api/regions/${code}/smash`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ team_id: teamId }),
+      body: JSON.stringify({ team_id: teamId, level }),
     }),
-  unsmash: (code: string) =>
-    request<Region>(`/api/regions/${code}/smash`, { method: "DELETE" }),
+  unsmash: (code: string, teamId: number) =>
+    request<Region>(`/api/regions/${code}/smash/${teamId}`, { method: "DELETE" }),
+  uploadSmashPhoto: (code: string, teamId: number, file: File) => {
+    const form = new FormData();
+    form.append("photo", file);
+    return request<Region>(`/api/regions/${code}/smash/${teamId}/photo`, { method: "POST", body: form });
+  },
   uploadPhoto: (teamId: number, file: File) => {
     const form = new FormData();
     form.append("photo", file);

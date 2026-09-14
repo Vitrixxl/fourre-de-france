@@ -1,5 +1,6 @@
 import type { Team } from "../api";
-import { Flower2, Waves, Cherry, Clover, Zap } from "lucide-react";
+import { Flower2, Waves, Cherry, Clover } from "lucide-react";
+import Peach from "./Peach";
 import TeamAvatar from "./TeamAvatar";
 
 interface Props {
@@ -13,7 +14,7 @@ export default function TeamPicker({ teams, onPick }: Props) {
   return (
     <main className="picker">
       <header className="picker__header">
-        <span className="picker__badge"><Zap size={14} strokeWidth={2.5} /> Édition 2026</span>
+        <span className="picker__badge"><Peach size={14} /> Édition 2026</span>
         <h1 className="title">Fourre de France</h1>
         <p className="subtitle">Choisissez votre équipe pour commencer la tournée.</p>
       </header>

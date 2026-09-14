@@ -32,11 +32,19 @@ pub struct Team {
 }
 
 #[derive(Serialize, Clone)]
+pub struct Smash {
+    pub team_id: i64,
+    /// 1 = smashed, 2 = butt smashed
+    pub level: i64,
+    pub smashed_at: String,
+    pub photo_url: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
 pub struct Region {
     pub code: String,
     pub name: String,
-    pub smashed_by: Option<i64>,
-    pub smashed_at: Option<String>,
+    pub smashes: Vec<Smash>,
 }
 
 pub fn init(conn: &Connection) -> rusqlite::Result<()> {
@@ -59,11 +67,18 @@ pub fn init(conn: &Connection) -> rusqlite::Result<()> {
             name TEXT NOT NULL
          );
          CREATE TABLE IF NOT EXISTS smashes (
-            region_code TEXT PRIMARY KEY REFERENCES regions(code),
+            region_code TEXT NOT NULL REFERENCES regions(code),
             team_id INTEGER NOT NULL REFERENCES teams(id),
-            smashed_at TEXT NOT NULL
+            level INTEGER NOT NULL DEFAULT 1,
+            smashed_at TEXT NOT NULL,
+            photo_path TEXT,
+            PRIMARY KEY (region_code, team_id)
          );",
     )?;
+    migrate_smashes_v1(conn)?;
+    if !has_column(conn, "smashes", "photo_path")? {
+        conn.execute_batch("ALTER TABLE smashes ADD COLUMN photo_path TEXT;")?;
+    }
 
     for (id, name, color, members) in TEAMS {
         conn.execute(
@@ -91,6 +106,34 @@ pub fn init(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     Ok(())
+}
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> rusqlite::Result<bool> {
+    let cols = conn
+        .prepare(&format!("PRAGMA table_info({table})"))?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(cols.iter().any(|c| c == column))
+}
+
+/// v1 keyed smashes by region only (one team per region) and had no level.
+fn migrate_smashes_v1(conn: &Connection) -> rusqlite::Result<()> {
+    if has_column(conn, "smashes", "level")? {
+        return Ok(());
+    }
+    conn.execute_batch(
+        "ALTER TABLE smashes RENAME TO smashes_v1;
+         CREATE TABLE smashes (
+            region_code TEXT NOT NULL REFERENCES regions(code),
+            team_id INTEGER NOT NULL REFERENCES teams(id),
+            level INTEGER NOT NULL DEFAULT 1,
+            smashed_at TEXT NOT NULL,
+            PRIMARY KEY (region_code, team_id)
+         );
+         INSERT INTO smashes (region_code, team_id, level, smashed_at)
+            SELECT region_code, team_id, 1, smashed_at FROM smashes_v1;
+         DROP TABLE smashes_v1;",
+    )
 }
 
 pub fn list_teams(conn: &Connection) -> rusqlite::Result<Vec<Team>> {
@@ -136,53 +179,84 @@ pub fn set_team_photo(conn: &Connection, id: i64, path: &str) -> rusqlite::Resul
     )
 }
 
-pub fn list_regions(conn: &Connection) -> rusqlite::Result<Vec<Region>> {
+fn smashes_for(conn: &Connection, code: &str) -> rusqlite::Result<Vec<Smash>> {
     let mut stmt = conn.prepare(
-        "SELECT r.code, r.name, s.team_id, s.smashed_at
-         FROM regions r LEFT JOIN smashes s ON s.region_code = r.code
-         ORDER BY r.name",
+        "SELECT team_id, level, smashed_at, photo_path FROM smashes WHERE region_code = ?1 ORDER BY smashed_at",
     )?;
-    let regions = stmt
-        .query_map([], |r| {
-            Ok(Region {
-                code: r.get(0)?,
-                name: r.get(1)?,
-                smashed_by: r.get(2)?,
-                smashed_at: r.get(3)?,
+    let rows = stmt
+        .query_map(params![code], |r| {
+            Ok(Smash {
+                team_id: r.get(0)?,
+                level: r.get(1)?,
+                smashed_at: r.get(2)?,
+                photo_url: r.get::<_, Option<String>>(3)?.map(|p| format!("/uploads/{p}")),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(regions)
+    Ok(rows)
+}
+
+pub fn list_regions(conn: &Connection) -> rusqlite::Result<Vec<Region>> {
+    let mut stmt = conn.prepare("SELECT code, name FROM regions ORDER BY name")?;
+    let base = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut out = Vec::with_capacity(base.len());
+    for (code, name) in base {
+        let smashes = smashes_for(conn, &code)?;
+        out.push(Region { code, name, smashes });
+    }
+    Ok(out)
 }
 
 pub fn get_region(conn: &Connection, code: &str) -> rusqlite::Result<Option<Region>> {
-    conn.query_row(
-        "SELECT r.code, r.name, s.team_id, s.smashed_at
-         FROM regions r LEFT JOIN smashes s ON s.region_code = r.code
-         WHERE r.code = ?1",
-        params![code],
-        |r| {
-            Ok(Region {
-                code: r.get(0)?,
-                name: r.get(1)?,
-                smashed_by: r.get(2)?,
-                smashed_at: r.get(3)?,
-            })
-        },
-    )
-    .optional()
+    let base = conn
+        .query_row(
+            "SELECT code, name FROM regions WHERE code = ?1",
+            params![code],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+        )
+        .optional()?;
+    match base {
+        Some((code, name)) => {
+            let smashes = smashes_for(conn, &code)?;
+            Ok(Some(Region { code, name, smashes }))
+        }
+        None => Ok(None),
+    }
 }
 
-pub fn smash(conn: &Connection, code: &str, team_id: i64) -> rusqlite::Result<()> {
+/// Upsert a team's smash on a region. `level` 1 = smashed, 2 = butt smashed.
+pub fn smash(conn: &Connection, code: &str, team_id: i64, level: i64) -> rusqlite::Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
     conn.execute(
-        "INSERT INTO smashes (region_code, team_id, smashed_at) VALUES (?1, ?2, ?3)
-         ON CONFLICT(region_code) DO UPDATE SET team_id = excluded.team_id, smashed_at = excluded.smashed_at",
-        params![code, team_id, now],
+        "INSERT INTO smashes (region_code, team_id, level, smashed_at) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(region_code, team_id) DO UPDATE SET level = excluded.level",
+        params![code, team_id, level, now],
     )?;
     Ok(())
 }
 
-pub fn unsmash(conn: &Connection, code: &str) -> rusqlite::Result<usize> {
-    conn.execute("DELETE FROM smashes WHERE region_code = ?1", params![code])
+pub fn smash_exists(conn: &Connection, code: &str, team_id: i64) -> rusqlite::Result<bool> {
+    conn.query_row(
+        "SELECT 1 FROM smashes WHERE region_code = ?1 AND team_id = ?2",
+        params![code, team_id],
+        |_| Ok(()),
+    )
+    .optional()
+    .map(|o| o.is_some())
+}
+
+pub fn set_smash_photo(conn: &Connection, code: &str, team_id: i64, path: &str) -> rusqlite::Result<usize> {
+    conn.execute(
+        "UPDATE smashes SET photo_path = ?1 WHERE region_code = ?2 AND team_id = ?3",
+        params![path, code, team_id],
+    )
+}
+
+pub fn unsmash(conn: &Connection, code: &str, team_id: i64) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM smashes WHERE region_code = ?1 AND team_id = ?2",
+        params![code, team_id],
+    )
 }

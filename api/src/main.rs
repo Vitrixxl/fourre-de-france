@@ -68,10 +68,9 @@ async fn main() {
         .route("/teams", get(list_teams))
         .route("/teams/:id/photo", post(upload_photo))
         .route("/regions", get(list_regions))
-        .route(
-            "/regions/:code/smash",
-            post(smash_region).delete(unsmash_region),
-        )
+        .route("/regions/:code/smash", post(smash_region))
+        .route("/regions/:code/smash/:team_id", axum::routing::delete(unsmash_region))
+        .route("/regions/:code/smash/:team_id/photo", post(upload_smash_photo))
         .with_state(state);
 
     let static_dir = PathBuf::from(std::env::var("STATIC_DIR").unwrap_or_else(|_| "../web/dist".into()));
@@ -104,6 +103,13 @@ async fn list_regions(State(s): State<AppState>) -> Result<Json<Vec<db::Region>>
 #[derive(Deserialize)]
 struct SmashBody {
     team_id: i64,
+    /// 1 = smashed (default), 2 = butt smashed
+    #[serde(default = "default_level")]
+    level: i64,
+}
+
+fn default_level() -> i64 {
+    1
 }
 
 async fn smash_region(
@@ -118,36 +124,30 @@ async fn smash_region(
     if !db::team_exists(&conn, body.team_id).map_err(internal)? {
         return Err(err(StatusCode::BAD_REQUEST, "unknown team"));
     }
-    db::smash(&conn, &code, body.team_id).map_err(internal)?;
+    if !(1..=2).contains(&body.level) {
+        return Err(err(StatusCode::BAD_REQUEST, "level must be 1 (smashed) or 2 (butt smashed)"));
+    }
+    db::smash(&conn, &code, body.team_id, body.level).map_err(internal)?;
     let region = db::get_region(&conn, &code).map_err(internal)?.expect("just upserted");
     Ok(Json(region))
 }
 
 async fn unsmash_region(
     State(s): State<AppState>,
-    Path(code): Path<String>,
+    Path((code, team_id)): Path<(String, i64)>,
 ) -> Result<Json<db::Region>, ApiError> {
     let conn = s.db.lock().map_err(internal)?;
     let Some(_) = db::get_region(&conn, &code).map_err(internal)? else {
         return Err(err(StatusCode::NOT_FOUND, "unknown region"));
     };
-    db::unsmash(&conn, &code).map_err(internal)?;
+    db::unsmash(&conn, &code, team_id).map_err(internal)?;
     let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
     Ok(Json(region))
 }
 
-async fn upload_photo(
-    State(s): State<AppState>,
-    Path(id): Path<i64>,
-    mut multipart: Multipart,
-) -> Result<impl IntoResponse, ApiError> {
-    {
-        let conn = s.db.lock().map_err(internal)?;
-        if !db::team_exists(&conn, id).map_err(internal)? {
-            return Err(err(StatusCode::NOT_FOUND, "unknown team"));
-        }
-    }
-
+/// Reads the `photo` field of a multipart upload and stores it under `uploads_dir`.
+/// Returns the stored file name.
+async fn save_photo(uploads_dir: &std::path::Path, prefix: &str, mut multipart: Multipart) -> Result<String, ApiError> {
     let mut saved: Option<String> = None;
     while let Some(field) = multipart
         .next_field()
@@ -171,20 +171,51 @@ async fn upload_photo(
         if bytes.len() > 8 * 1024 * 1024 {
             return Err(err(StatusCode::PAYLOAD_TOO_LARGE, "photo larger than 8 MiB"));
         }
-        let filename = format!("team-{id}-{}.{ext}", chrono::Utc::now().timestamp());
-        tokio::fs::write(s.uploads_dir.join(&filename), &bytes)
+        let filename = format!("{prefix}-{}.{ext}", chrono::Utc::now().timestamp_millis());
+        tokio::fs::write(uploads_dir.join(&filename), &bytes)
             .await
             .map_err(internal)?;
         saved = Some(filename);
     }
 
-    let Some(filename) = saved else {
-        return Err(err(StatusCode::BAD_REQUEST, "missing multipart field 'photo'"));
-    };
+    saved.ok_or_else(|| err(StatusCode::BAD_REQUEST, "missing multipart field 'photo'"))
+}
+
+async fn upload_photo(
+    State(s): State<AppState>,
+    Path(id): Path<i64>,
+    multipart: Multipart,
+) -> Result<impl IntoResponse, ApiError> {
+    {
+        let conn = s.db.lock().map_err(internal)?;
+        if !db::team_exists(&conn, id).map_err(internal)? {
+            return Err(err(StatusCode::NOT_FOUND, "unknown team"));
+        }
+    }
+    let filename = save_photo(&s.uploads_dir, &format!("team-{id}"), multipart).await?;
 
     let conn = s.db.lock().map_err(internal)?;
     db::set_team_photo(&conn, id, &filename).map_err(internal)?;
     let teams = db::list_teams(&conn).map_err(internal)?;
     let team = teams.into_iter().find(|t| t.id == id).expect("exists");
     Ok(Json(team))
+}
+
+async fn upload_smash_photo(
+    State(s): State<AppState>,
+    Path((code, team_id)): Path<(String, i64)>,
+    multipart: Multipart,
+) -> Result<Json<db::Region>, ApiError> {
+    {
+        let conn = s.db.lock().map_err(internal)?;
+        if !db::smash_exists(&conn, &code, team_id).map_err(internal)? {
+            return Err(err(StatusCode::NOT_FOUND, "this team has not smashed this region"));
+        }
+    }
+    let filename = save_photo(&s.uploads_dir, &format!("smash-{code}-{team_id}"), multipart).await?;
+
+    let conn = s.db.lock().map_err(internal)?;
+    db::set_smash_photo(&conn, &code, team_id, &filename).map_err(internal)?;
+    let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
+    Ok(Json(region))
 }
