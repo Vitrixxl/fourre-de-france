@@ -75,7 +75,7 @@ async fn main() {
         .with_state(state);
 
     let static_dir = PathBuf::from(std::env::var("STATIC_DIR").unwrap_or_else(|_| "../web/dist".into()));
-    let spa = ServeDir::new(&static_dir).not_found_service(ServeFile::new(static_dir.join("index.html")));
+    let spa = ServeDir::new(&static_dir).fallback(ServeFile::new(static_dir.join("index.html")));
 
     let app = Router::new()
         .nest("/api", api)
