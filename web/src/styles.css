@@ -468,6 +468,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .smash-row__badge--butt { color: #d98a1e; }
 .panel__done { display: inline-flex; align-items: center; gap: 0.4rem; color: #d98a1e; font-weight: 800; }
 .panel__actions { flex-wrap: wrap; align-items: center; }
+/* The two smash buttons share one row and shrink instead of stacking. */
+.panel__actions .btn--smash, .panel__actions .btn--butt { flex: 1 1 0; min-width: 0; padding-inline: 1rem; white-space: nowrap; }
 .panel__placeholder { width: 56px; height: 56px; border-radius: 50%; background: var(--lemon); color: #b8892a; flex: none; }
 .panel__title { margin: 0; padding-right: 2rem; font-family: var(--font-display); font-weight: 600; font-size: 1.35rem; }
 .panel__status { margin: 0.15rem 0 0; color: var(--ink-soft); font-weight: 700; font-size: 0.92rem; }
@@ -720,6 +722,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .topbar { padding: 0.7rem 1rem; gap: 0.6rem 0.8rem; }
   .topbar__tagline { display: none; }
   .stage { padding-bottom: 12rem; gap: 0.6rem; }
+  .panel__actions .btn--smash, .panel__actions .btn--butt { font-size: 1rem; padding: 0.85rem 0.7rem; }
   .scorebar__leader { font-size: 0.85rem; }
   .score__name { display: none; }
   .score__detail { display: none; }
