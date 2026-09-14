@@ -9,6 +9,8 @@ RUN bun run build
 # ---- api -----------------------------------------------------------------
 FROM rust:1-bookworm AS api
 WORKDIR /api
+# Limit parallelism: a full-speed release build exhausts the 4 GB of the Raspberry Pi.
+ENV CARGO_BUILD_JOBS=2
 # Cache dependencies in their own layer.
 COPY api/Cargo.toml api/Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
