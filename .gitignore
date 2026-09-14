@@ -1,0 +1,10 @@
+# rust
+api/target/
+# web
+web/node_modules/
+web/dist/
+# runtime data (sqlite + uploads)
+data/
+api/data/
+.env
+.DS_Store

@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    image: fourre-de-france
+    container_name: fourre-de-france
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - fdf-data:/data
+
+volumes:
+  fdf-data:
