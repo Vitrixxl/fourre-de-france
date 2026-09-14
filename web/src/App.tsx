@@ -5,7 +5,7 @@ import { api, type Region, type SmashLevel, type Team } from "./api";
 import { statsFor } from "./stats";
 import { REGIONS } from "./data/regions";
 import FranceMap from "./components/FranceMap";
-import RegionPanel from "./components/RegionPanel";
+import RegionPanel, { type PhotoPreview } from "./components/RegionPanel";
 import SmashDialog from "./components/SmashDialog";
 import TeamAvatar from "./components/TeamAvatar";
 import TeamPicker from "./components/TeamPicker";
@@ -27,6 +27,7 @@ export default function App() {
   const [dialog, setDialog] = useState<SmashLevel | null>(null);
   const [dialogPhoto, setDialogPhoto] = useState<File | null>(null);
   const [lightbox, setLightbox] = useState<LightboxPhoto | null>(null);
+  const [preview, setPreview] = useState<PhotoPreview | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,10 +98,25 @@ export default function App() {
       closeDialog();
     });
 
-  const uploadSmashPhoto = (file: File) =>
+  // Optimistic: show the picked file right away, swap for the server URL once uploaded.
+  const uploadSmashPhoto = (file: File) => {
+    if (!selectedRegion || !team) return;
+    const local = { code: selectedRegion.code, teamId: team.id, url: URL.createObjectURL(file) };
+    setPreview(local);
+    return run(async () => {
+      try {
+        applyRegion(await api.uploadSmashPhoto(local.code, local.teamId, file));
+      } finally {
+        setPreview((p) => (p === local ? null : p));
+        URL.revokeObjectURL(local.url);
+      }
+    });
+  };
+
+  const deleteSmashPhoto = () =>
     run(async () => {
       if (!selectedRegion || !team) return;
-      applyRegion(await api.uploadSmashPhoto(selectedRegion.code, team.id, file));
+      applyRegion(await api.deleteSmashPhoto(selectedRegion.code, team.id));
     });
 
   const downgrade = () =>
@@ -160,10 +176,10 @@ export default function App() {
                 <span className="score__name">{t.members.join(" & ")}</span>
                 <span className="score__detail">
                   <span title="smashées · 1 pt">
-                    <Peach size={12} /> {s.smashed}
+                    <Flame size={12} strokeWidth={2.5} /> {s.smashed}
                   </span>
                   <span title="butt smashées · 2 pts">
-                    <Flame size={12} strokeWidth={2.5} /> {s.buttSmashed}
+                    <Peach size={12} /> {s.buttSmashed}
                   </span>
                 </span>
                 <span className="score__count" title="points">
@@ -208,13 +224,15 @@ export default function App() {
           <RegionPanel
             region={selectedRegion}
             team={team}
-            teams={teamMap}
+            teams={teams}
+            preview={preview}
             busy={busy}
             onSmash={() => setDialog(1)}
             onButtSmash={() => setDialog(2)}
             onDowngrade={downgrade}
             onUnsmash={unsmash}
             onUploadPhoto={uploadSmashPhoto}
+            onDeletePhoto={deleteSmashPhoto}
             onOpenPhoto={setLightbox}
             onClose={() => setSelected(null)}
           />

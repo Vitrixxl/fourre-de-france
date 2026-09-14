@@ -70,7 +70,10 @@ async fn main() {
         .route("/regions", get(list_regions))
         .route("/regions/:code/smash", post(smash_region))
         .route("/regions/:code/smash/:team_id", axum::routing::delete(unsmash_region))
-        .route("/regions/:code/smash/:team_id/photo", post(upload_smash_photo))
+        .route(
+            "/regions/:code/smash/:team_id/photo",
+            post(upload_smash_photo).delete(delete_smash_photo),
+        )
         .with_state(state);
 
     let static_dir = PathBuf::from(std::env::var("STATIC_DIR").unwrap_or_else(|_| "../web/dist".into()));
@@ -216,6 +219,26 @@ async fn upload_smash_photo(
 
     let conn = s.db.lock().map_err(internal)?;
     db::set_smash_photo(&conn, &code, team_id, &filename).map_err(internal)?;
+    let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
+    Ok(Json(region))
+}
+
+async fn delete_smash_photo(
+    State(s): State<AppState>,
+    Path((code, team_id)): Path<(String, i64)>,
+) -> Result<Json<db::Region>, ApiError> {
+    let previous = {
+        let conn = s.db.lock().map_err(internal)?;
+        if !db::smash_exists(&conn, &code, team_id).map_err(internal)? {
+            return Err(err(StatusCode::NOT_FOUND, "this team has not smashed this region"));
+        }
+        db::clear_smash_photo(&conn, &code, team_id).map_err(internal)?
+    };
+    if let Some(file) = previous {
+        // Best effort: the DB is already consistent even if the file lingers.
+        let _ = tokio::fs::remove_file(s.uploads_dir.join(file)).await;
+    }
+    let conn = s.db.lock().map_err(internal)?;
     let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
     Ok(Json(region))
 }

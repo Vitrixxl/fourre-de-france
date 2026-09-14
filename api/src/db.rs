@@ -254,6 +254,23 @@ pub fn set_smash_photo(conn: &Connection, code: &str, team_id: i64, path: &str) 
     )
 }
 
+/// Clears the photo of a smash and returns the previous file name, if any.
+pub fn clear_smash_photo(conn: &Connection, code: &str, team_id: i64) -> rusqlite::Result<Option<String>> {
+    let previous: Option<String> = conn
+        .query_row(
+            "SELECT photo_path FROM smashes WHERE region_code = ?1 AND team_id = ?2",
+            params![code, team_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    conn.execute(
+        "UPDATE smashes SET photo_path = NULL WHERE region_code = ?1 AND team_id = ?2",
+        params![code, team_id],
+    )?;
+    Ok(previous)
+}
+
 pub fn unsmash(conn: &Connection, code: &str, team_id: i64) -> rusqlite::Result<usize> {
     conn.execute(
         "DELETE FROM smashes WHERE region_code = ?1 AND team_id = ?2",

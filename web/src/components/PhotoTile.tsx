@@ -9,8 +9,10 @@ interface Props {
   /** Team the tile belongs to (shown as a small avatar); optional for the dialog picker. */
   team?: Team;
   url: string | null;
-  /** Whether the current user may add / replace the photo. */
+  /** Whether the current user may add / replace / remove the photo. */
   editable: boolean;
+  /** Upload in flight: dims the tile. */
+  pending?: boolean;
   label?: string;
   onPick?: (file: File) => void;
   onClear?: () => void;
@@ -18,10 +20,14 @@ interface Props {
 }
 
 /** A square photo slot: the photo itself, a "+" to import one, or an empty placeholder. */
-export default function PhotoTile({ team, url, editable, label, onPick, onClear, onOpen }: Props) {
+export default function PhotoTile({ team, url, editable, pending, label, onPick, onClear, onOpen }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  const style = team ? { ["--team" as string]: team.color } : undefined;
+  const canPick = editable && !!onPick;
 
-  const picker = editable && onPick && (
+  // The file input lives next to the clickable element, never inside it: an <input>
+  // nested in a <button> swallows the change event in some browsers.
+  const picker = canPick && (
     <input
       ref={input}
       type="file"
@@ -35,46 +41,49 @@ export default function PhotoTile({ team, url, editable, label, onPick, onClear,
     />
   );
 
+  let body;
   if (url) {
-    return (
-      <div className="photo-tile photo-tile--photo" style={team ? { ["--team" as string]: team.color } : undefined}>
-        <button className="photo-tile__img" onClick={onOpen} title="Voir en grand">
+    body = (
+      <>
+        <button type="button" className="photo-tile__img" onClick={onOpen} title="Voir en grand" disabled={!onOpen}>
           <img src={url} alt={label ?? "Photo"} />
         </button>
-        {team && <TeamAvatar team={team} size={26} className="photo-tile__avatar" />}
-        {editable && onPick && (
-          <button className="photo-tile__action" onClick={() => input.current?.click()} title="Remplacer la photo">
+        {canPick && (
+          <button type="button" className="photo-tile__action" onClick={() => input.current?.click()} title="Remplacer la photo">
             <Camera size={15} strokeWidth={2.4} />
           </button>
         )}
         {editable && onClear && (
-          <button className="photo-tile__action photo-tile__action--clear" onClick={onClear} title="Retirer">
+          <button type="button" className="photo-tile__action photo-tile__action--clear" onClick={onClear} title="Retirer la photo">
             <X size={15} strokeWidth={2.4} />
           </button>
         )}
-        {picker}
-      </div>
+      </>
     );
-  }
-
-  if (editable && onPick) {
-    return (
-      <button className="photo-tile photo-tile--add" style={team ? { ["--team" as string]: team.color } : undefined} onClick={() => input.current?.click()}>
+  } else if (canPick) {
+    body = (
+      <button type="button" className="photo-tile__add" onClick={() => input.current?.click()}>
         <span className="photo-tile__plus">
           <Plus size={26} strokeWidth={2.6} />
         </span>
         <span className="photo-tile__label">{label ?? "Ajouter une photo"}</span>
-        {team && <TeamAvatar team={team} size={26} className="photo-tile__avatar" />}
-        {picker}
       </button>
+    );
+  } else {
+    body = (
+      <div className="photo-tile__empty">
+        <ImageOff size={22} strokeWidth={2} />
+        <span className="photo-tile__label">{label ?? "Pas de photo"}</span>
+      </div>
     );
   }
 
+  const kind = url ? "photo-tile--photo" : canPick ? "photo-tile--add" : "photo-tile--empty";
   return (
-    <div className="photo-tile photo-tile--empty" style={team ? { ["--team" as string]: team.color } : undefined}>
-      <ImageOff size={22} strokeWidth={2} />
-      <span className="photo-tile__label">{label ?? "Pas de photo"}</span>
+    <div className={`photo-tile ${kind} ${pending ? "photo-tile--pending" : ""}`} style={style}>
+      {body}
       {team && <TeamAvatar team={team} size={26} className="photo-tile__avatar" />}
+      {picker}
     </div>
   );
 }

@@ -44,7 +44,7 @@ export default function SmashDialog({ open, level, regionName, photo, busy, onPh
     >
       <div className="dialog__body">
         <span className="dialog__emoji" aria-hidden>
-          {butt ? <Flame size={40} strokeWidth={2.5} /> : <Peach size={40} />}
+          {butt ? <Peach size={40} /> : <Flame size={40} strokeWidth={2.5} />}
         </span>
         <h2>{butt ? "Did you butt smash here?" : "Did you smash here?"}</h2>
         <p className="dialog__region">{regionName}</p>

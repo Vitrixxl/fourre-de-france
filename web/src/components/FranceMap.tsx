@@ -123,7 +123,7 @@ export default function FranceMap({ regions, teams, selected, onSelect }: Props)
                 <div key={s.team_id} className={`map__pin ${butt ? "map__pin--butt" : ""}`}>
                   <TeamAvatar team={team} size={PIN} title={`${shape.name} — ${team.name}${butt ? " (butt smashed)" : ""}`} />
                   <span className={`map__pin-boom ${butt ? "map__pin-boom--butt" : ""}`} aria-hidden>
-                    {butt ? <Flame size={14} strokeWidth={2.5} /> : <Peach size={14} />}
+                    {butt ? <Peach size={14} /> : <Flame size={14} strokeWidth={2.5} />}
                   </span>
                 </div>
               );

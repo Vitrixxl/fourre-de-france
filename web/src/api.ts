@@ -55,6 +55,8 @@ export const api = {
     form.append("photo", file);
     return request<Region>(`/api/regions/${code}/smash/${teamId}/photo`, { method: "POST", body: form });
   },
+  deleteSmashPhoto: (code: string, teamId: number) =>
+    request<Region>(`/api/regions/${code}/smash/${teamId}/photo`, { method: "DELETE" }),
   uploadPhoto: (teamId: number, file: File) => {
     const form = new FormData();
     form.append("photo", file);

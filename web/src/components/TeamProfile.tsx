@@ -67,12 +67,12 @@ export default function TeamProfile({ team, regions, totalRegions, isMine, onCha
 
           <div className="profile__stats">
             <div className="stat">
-              <span className="stat__icon stat__icon--smash"><Peach size={18} /></span>
+              <span className="stat__icon stat__icon--smash"><Flame size={18} strokeWidth={2.5} /></span>
               <span className="stat__value">{stats.smashed}</span>
               <span className="stat__label">smashées · 1 pt</span>
             </div>
             <div className="stat">
-              <span className="stat__icon stat__icon--butt"><Flame size={18} strokeWidth={2.5} /></span>
+              <span className="stat__icon stat__icon--butt"><Peach size={18} /></span>
               <span className="stat__value">{stats.buttSmashed}</span>
               <span className="stat__label">butt smashées · 2 pts</span>
             </div>
@@ -89,7 +89,7 @@ export default function TeamProfile({ team, regions, totalRegions, isMine, onCha
             <ul className="profile__regions">
               {stats.regions.map((r) => (
                 <li key={r.code} className={r.level === 2 ? "region-chip region-chip--butt" : "region-chip"}>
-                  {r.level === 2 ? <Flame size={13} strokeWidth={2.5} /> : <Peach size={13} />}
+                  {r.level === 2 ? <Peach size={13} /> : <Flame size={13} strokeWidth={2.5} />}
                   {r.name}
                 </li>
               ))}
