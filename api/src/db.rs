@@ -32,12 +32,19 @@ pub struct Team {
 }
 
 #[derive(Serialize, Clone)]
+pub struct Tag {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Serialize, Clone)]
 pub struct Smash {
     pub team_id: i64,
     /// 1 = smashed, 2 = butt smashed
     pub level: i64,
     pub smashed_at: String,
     pub photo_url: Option<String>,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Serialize, Clone)]
@@ -79,6 +86,21 @@ pub fn init(conn: &Connection) -> rusqlite::Result<()> {
     if !has_column(conn, "smashes", "photo_path")? {
         conn.execute_batch("ALTER TABLE smashes ADD COLUMN photo_path TEXT;")?;
     }
+    // Created after the smashes migration: renaming `smashes` would otherwise
+    // rewrite the foreign key below to point at the dropped v1 table.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE
+         );
+         CREATE TABLE IF NOT EXISTS smash_tags (
+            region_code TEXT NOT NULL,
+            team_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+            PRIMARY KEY (region_code, team_id, tag_id),
+            FOREIGN KEY (region_code, team_id) REFERENCES smashes(region_code, team_id) ON DELETE CASCADE
+         );",
+    )?;
 
     for (id, name, color, members) in TEAMS {
         conn.execute(
@@ -183,17 +205,59 @@ fn smashes_for(conn: &Connection, code: &str) -> rusqlite::Result<Vec<Smash>> {
     let mut stmt = conn.prepare(
         "SELECT team_id, level, smashed_at, photo_path FROM smashes WHERE region_code = ?1 ORDER BY smashed_at",
     )?;
-    let rows = stmt
+    let mut rows = stmt
         .query_map(params![code], |r| {
             Ok(Smash {
                 team_id: r.get(0)?,
                 level: r.get(1)?,
                 smashed_at: r.get(2)?,
                 photo_url: r.get::<_, Option<String>>(3)?.map(|p| format!("/uploads/{p}")),
+                tags: Vec::new(),
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut tags = conn.prepare(
+        "SELECT t.id, t.name FROM smash_tags st JOIN tags t ON t.id = st.tag_id
+         WHERE st.region_code = ?1 AND st.team_id = ?2 ORDER BY t.name COLLATE NOCASE",
+    )?;
+    for smash in &mut rows {
+        smash.tags = tags
+            .query_map(params![code, smash.team_id], |r| Ok(Tag { id: r.get(0)?, name: r.get(1)? }))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+    }
     Ok(rows)
+}
+
+pub fn list_tags(conn: &Connection) -> rusqlite::Result<Vec<Tag>> {
+    let mut stmt = conn.prepare("SELECT id, name FROM tags ORDER BY name COLLATE NOCASE")?;
+    let rows = stmt
+        .query_map([], |r| Ok(Tag { id: r.get(0)?, name: r.get(1)? }))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// Returns the tag with this name (case-insensitive), creating it if needed.
+pub fn get_or_create_tag(conn: &Connection, name: &str) -> rusqlite::Result<Tag> {
+    conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?1)", params![name])?;
+    conn.query_row(
+        "SELECT id, name FROM tags WHERE name = ?1",
+        params![name],
+        |r| Ok(Tag { id: r.get(0)?, name: r.get(1)? }),
+    )
+}
+
+pub fn add_smash_tag(conn: &Connection, code: &str, team_id: i64, tag_id: i64) -> rusqlite::Result<usize> {
+    conn.execute(
+        "INSERT OR IGNORE INTO smash_tags (region_code, team_id, tag_id) VALUES (?1, ?2, ?3)",
+        params![code, team_id, tag_id],
+    )
+}
+
+pub fn remove_smash_tag(conn: &Connection, code: &str, team_id: i64, tag_id: i64) -> rusqlite::Result<usize> {
+    conn.execute(
+        "DELETE FROM smash_tags WHERE region_code = ?1 AND team_id = ?2 AND tag_id = ?3",
+        params![code, team_id, tag_id],
+    )
 }
 
 pub fn list_regions(conn: &Connection) -> rusqlite::Result<Vec<Region>> {

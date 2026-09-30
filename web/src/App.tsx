@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Camera, Cherry, Flame, Flower2, Heart, PartyPopper, RefreshCw, Sparkles, Star } from "lucide-react";
 import Peach from "./components/Peach";
-import { api, type Region, type SmashLevel, type Team } from "./api";
+import { api, type Region, type SmashLevel, type Tag, type Team } from "./api";
 import { statsFor } from "./stats";
 import { REGIONS } from "./data/regions";
 import FranceMap from "./components/FranceMap";
@@ -18,6 +18,7 @@ const TEAM_KEY = "fdf.team";
 export default function App() {
   const [teams, setTeams] = useState<Team[] | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [teamId, setTeamId] = useState<number | null>(() => {
     // ?team=1 pre-selects a team (handy for sharing a link), otherwise the last choice.
     const raw = new URLSearchParams(location.search).get("team") ?? localStorage.getItem(TEAM_KEY);
@@ -26,6 +27,7 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<SmashLevel | null>(null);
   const [dialogPhoto, setDialogPhoto] = useState<File | null>(null);
+  const [dialogTags, setDialogTags] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<LightboxPhoto | null>(null);
   const [preview, setPreview] = useState<PhotoPreview | null>(null);
   const [profileId, setProfileId] = useState<number | null>(null);
@@ -36,9 +38,10 @@ export default function App() {
 
   const reload = useCallback(async () => {
     try {
-      const [t, r] = await Promise.all([api.teams(), api.regions()]);
+      const [t, r, g] = await Promise.all([api.teams(), api.regions(), api.tags()]);
       setTeams(t);
       setRegions(r);
+      setTags(g);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -86,14 +89,16 @@ export default function App() {
   const closeDialog = () => {
     setDialog(null);
     setDialogPhoto(null);
+    setDialogTags([]);
   };
 
   const confirmSmash = () =>
     run(async () => {
       if (!selectedRegion || !team || !dialog) return;
-      let region = await api.smash(selectedRegion.code, team.id, dialog);
+      let region = await api.smash(selectedRegion.code, team.id, dialog, dialogTags);
       if (dialogPhoto) region = await api.uploadSmashPhoto(selectedRegion.code, team.id, dialogPhoto);
       applyRegion(region);
+      if (dialogTags.length) setTags(await api.tags());
       setBurst((b) => ({ n: b.n + 1, big: dialog === 2 }));
       closeDialog();
     });
@@ -117,6 +122,19 @@ export default function App() {
     run(async () => {
       if (!selectedRegion || !team) return;
       applyRegion(await api.deleteSmashPhoto(selectedRegion.code, team.id));
+    });
+
+  const addTag = (name: string) =>
+    run(async () => {
+      if (!selectedRegion || !team) return;
+      applyRegion(await api.addSmashTag(selectedRegion.code, team.id, name));
+      setTags(await api.tags());
+    });
+
+  const removeTag = (tagId: number) =>
+    run(async () => {
+      if (!selectedRegion || !team) return;
+      applyRegion(await api.removeSmashTag(selectedRegion.code, team.id, tagId));
     });
 
   const downgrade = () =>
@@ -225,6 +243,7 @@ export default function App() {
             region={selectedRegion}
             team={team}
             teams={teams}
+            allTags={tags}
             preview={preview}
             busy={busy}
             onSmash={() => setDialog(1)}
@@ -233,6 +252,8 @@ export default function App() {
             onUnsmash={unsmash}
             onUploadPhoto={uploadSmashPhoto}
             onDeletePhoto={deleteSmashPhoto}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
             onOpenPhoto={setLightbox}
             onClose={() => setSelected(null)}
           />
@@ -248,8 +269,11 @@ export default function App() {
         level={dialog ?? 1}
         regionName={selectedRegion?.name ?? ""}
         photo={dialogPhoto}
+        tags={dialogTags}
+        allTags={tags}
         busy={busy}
         onPhoto={setDialogPhoto}
+        onTags={setDialogTags}
         onYes={confirmSmash}
         onNope={closeDialog}
       />

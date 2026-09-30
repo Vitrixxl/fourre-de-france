@@ -6,6 +6,11 @@ export interface Team {
   photo_url: string | null;
 }
 
+export interface Tag {
+  id: number;
+  name: string;
+}
+
 /** 1 = smashed, 2 = butt smashed */
 export type SmashLevel = 1 | 2;
 
@@ -14,6 +19,7 @@ export interface Smash {
   level: SmashLevel;
   smashed_at: string;
   photo_url: string | null;
+  tags: Tag[];
 }
 
 export interface Region {
@@ -42,12 +48,21 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 export const api = {
   teams: () => request<Team[]>("/api/teams"),
   regions: () => request<Region[]>("/api/regions"),
-  smash: (code: string, teamId: number, level: SmashLevel = 1) =>
+  tags: () => request<Tag[]>("/api/tags"),
+  smash: (code: string, teamId: number, level: SmashLevel = 1, tags: string[] = []) =>
     request<Region>(`/api/regions/${code}/smash`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ team_id: teamId, level }),
+      body: JSON.stringify({ team_id: teamId, level, tags }),
     }),
+  addSmashTag: (code: string, teamId: number, name: string) =>
+    request<Region>(`/api/regions/${code}/smash/${teamId}/tags`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
+  removeSmashTag: (code: string, teamId: number, tagId: number) =>
+    request<Region>(`/api/regions/${code}/smash/${teamId}/tags/${tagId}`, { method: "DELETE" }),
   unsmash: (code: string, teamId: number) =>
     request<Region>(`/api/regions/${code}/smash/${teamId}`, { method: "DELETE" }),
   uploadSmashPhoto: (code: string, teamId: number, file: File) => {

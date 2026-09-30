@@ -1,8 +1,9 @@
 import { Flame, X } from "lucide-react";
-import type { Region, Team } from "../api";
+import type { Region, Tag, Team } from "../api";
 import type { LightboxPhoto } from "./PhotoLightbox";
 import Peach from "./Peach";
 import PhotoTile from "./PhotoTile";
+import TagPicker from "./TagPicker";
 import TeamAvatar from "./TeamAvatar";
 
 export interface PhotoPreview {
@@ -15,6 +16,7 @@ interface Props {
   region: Region;
   team: Team;
   teams: Team[];
+  allTags: Tag[];
   preview: PhotoPreview | null;
   busy?: boolean;
   onSmash: () => void;
@@ -23,6 +25,8 @@ interface Props {
   onUnsmash: () => void;
   onUploadPhoto: (file: File) => void;
   onDeletePhoto: () => void;
+  onAddTag: (name: string) => void;
+  onRemoveTag: (tagId: number) => void;
   onOpenPhoto: (photo: LightboxPhoto) => void;
   onClose: () => void;
 }
@@ -31,7 +35,7 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
-export default function RegionPanel({ region, team, teams, preview, busy, onSmash, onButtSmash, onDowngrade, onUnsmash, onUploadPhoto, onDeletePhoto, onOpenPhoto, onClose }: Props) {
+export default function RegionPanel({ region, team, teams, allTags, preview, busy, onSmash, onButtSmash, onDowngrade, onUnsmash, onUploadPhoto, onDeletePhoto, onAddTag, onRemoveTag, onOpenPhoto, onClose }: Props) {
   const mine = region.smashes.find((s) => s.team_id === team.id);
 
   return (
@@ -50,6 +54,7 @@ export default function RegionPanel({ region, team, teams, preview, busy, onSmas
             const t = teams.find((x) => x.id === s.team_id);
             if (!t) return null;
             const butt = s.level === 2;
+            const own = t.id === team.id;
             return (
               <li key={s.team_id} className={`smash-row ${butt ? "smash-row--butt" : ""}`} style={{ ["--team" as string]: t.color }}>
                 <TeamAvatar team={t} size={40} />
@@ -63,6 +68,19 @@ export default function RegionPanel({ region, team, teams, preview, busy, onSmas
                   {butt ? <Peach size={14} /> : <Flame size={14} strokeWidth={2.5} />}
                   {butt ? "2 pts" : "1 pt"}
                 </span>
+                <div className="smash-row__tags">
+                  <TagPicker
+                    selected={s.tags.map((x) => x.name)}
+                    all={allTags}
+                    editable={own}
+                    disabled={busy}
+                    onAdd={onAddTag}
+                    onRemove={(name) => {
+                      const tag = s.tags.find((x) => x.name === name);
+                      if (tag) onRemoveTag(tag.id);
+                    }}
+                  />
+                </div>
               </li>
             );
           })}

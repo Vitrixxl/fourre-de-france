@@ -466,6 +466,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 }
 .smash-row__badge { color: #e0507a; }
 .smash-row__badge--butt { color: #d98a1e; }
+.smash-row { flex-wrap: wrap; }
+/* Tags sit under the name, aligned past the 40px avatar. */
+.smash-row__tags { flex-basis: 100%; padding-left: calc(40px + 0.7rem); }
+.smash-row__tags:empty { display: none; }
 .panel__done { display: inline-flex; align-items: center; gap: 0.4rem; color: #d98a1e; font-weight: 800; }
 .panel__actions { flex-wrap: wrap; align-items: center; }
 /* The two smash buttons share one row and shrink instead of stacking. */
@@ -613,6 +617,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dialog h2 { margin: 0.5rem 0 0; font-family: var(--font-display); font-weight: 600; font-size: 1.7rem; }
 .dialog__region { margin: 0; color: var(--ink-soft); font-weight: 700; }
 .dialog__actions { display: flex; justify-content: center; gap: 0.75rem; margin-top: 1.2rem; }
+.dialog__tags { margin-top: 0.6rem; text-align: left; }
 .dialog__actions .btn { min-width: 110px; }
 
 /* --- team profile ------------------------------------------------------- */
@@ -729,3 +734,54 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .chip__label { display: none; }
   .chip { padding-right: 0.4rem; }
 }
+
+/* --- tags --------------------------------------------------------------- */
+.tags { display: flex; flex-direction: column; gap: 0.45rem; }
+.tags__list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.tag .lucide { color: #c9a7ff; }
+.tag__remove {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin-right: -0.2rem;
+  color: var(--ink-soft);
+}
+.tag__remove:hover { color: #e0507a; }
+.tag--add, .tag--new, .tag--suggestion { cursor: pointer; transition: transform 0.15s ease, background 0.15s ease; }
+.tag--add { border-style: dashed; color: var(--ink-soft); background: rgba(255, 255, 255, 0.6); }
+.tag--add:not(:disabled):hover, .tag--suggestion:not(:disabled):hover { transform: translateY(-1px); background: var(--lemon); }
+.tag--new { background: linear-gradient(135deg, #f6a5c0, #c9a7ff); color: #fff; border-color: transparent; }
+.tag--new .lucide { color: #fff; }
+.tags__editor { display: flex; flex-direction: column; gap: 0.45rem; }
+.tags__field { display: flex; align-items: center; gap: 0.3rem; }
+.tags__input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: #fff;
+  outline: none;
+}
+.tags__input:focus { border-color: #f6a5c0; }
+.tags__close { display: inline-flex; border: 0; background: transparent; color: var(--ink-soft); padding: 0.2rem; }
+.tags__suggestions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.tags__empty { color: var(--ink-soft); font-size: 0.8rem; font-weight: 700; }

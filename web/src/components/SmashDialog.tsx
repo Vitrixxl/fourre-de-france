@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Flame } from "lucide-react";
 import Peach from "./Peach";
-import type { SmashLevel } from "../api";
+import type { SmashLevel, Tag } from "../api";
 import PhotoTile from "./PhotoTile";
+import TagPicker from "./TagPicker";
 
 interface Props {
   open: boolean;
   level: SmashLevel;
   regionName: string;
   photo: File | null;
+  tags: string[];
+  allTags: Tag[];
   busy?: boolean;
   onPhoto: (file: File | null) => void;
+  onTags: (tags: string[]) => void;
   onYes: () => void;
   onNope: () => void;
 }
 
-export default function SmashDialog({ open, level, regionName, photo, busy, onPhoto, onYes, onNope }: Props) {
+export default function SmashDialog({ open, level, regionName, photo, tags, allTags, busy, onPhoto, onTags, onYes, onNope }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -56,6 +60,17 @@ export default function SmashDialog({ open, level, regionName, photo, busy, onPh
             label="Ajouter une photo (optionnel)"
             onPick={onPhoto}
             onClear={() => onPhoto(null)}
+          />
+        </div>
+
+        <div className="dialog__tags">
+          <TagPicker
+            selected={tags}
+            all={allTags}
+            editable
+            disabled={busy}
+            onAdd={(name) => onTags([...tags, name])}
+            onRemove={(name) => onTags(tags.filter((t) => t !== name))}
           />
         </div>
 

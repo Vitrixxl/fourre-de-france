@@ -67,12 +67,18 @@ async fn main() {
         .route("/health", get(|| async { "ok" }))
         .route("/teams", get(list_teams))
         .route("/teams/:id/photo", post(upload_photo))
+        .route("/tags", get(list_tags).post(create_tag))
         .route("/regions", get(list_regions))
         .route("/regions/:code/smash", post(smash_region))
         .route("/regions/:code/smash/:team_id", axum::routing::delete(unsmash_region))
         .route(
             "/regions/:code/smash/:team_id/photo",
             post(upload_smash_photo).delete(delete_smash_photo),
+        )
+        .route("/regions/:code/smash/:team_id/tags", post(add_smash_tag))
+        .route(
+            "/regions/:code/smash/:team_id/tags/:tag_id",
+            axum::routing::delete(remove_smash_tag),
         )
         .with_state(state);
 
@@ -109,6 +115,9 @@ struct SmashBody {
     /// 1 = smashed (default), 2 = butt smashed
     #[serde(default = "default_level")]
     level: i64,
+    /// Tag names to attach; unknown names are created.
+    #[serde(default)]
+    tags: Vec<String>,
 }
 
 fn default_level() -> i64 {
@@ -130,7 +139,12 @@ async fn smash_region(
     if !(1..=2).contains(&body.level) {
         return Err(err(StatusCode::BAD_REQUEST, "level must be 1 (smashed) or 2 (butt smashed)"));
     }
+    let names = body.tags.iter().map(|n| tag_name(n)).collect::<Result<Vec<_>, _>>()?;
     db::smash(&conn, &code, body.team_id, body.level).map_err(internal)?;
+    for name in names {
+        let tag = db::get_or_create_tag(&conn, &name).map_err(internal)?;
+        db::add_smash_tag(&conn, &code, body.team_id, tag.id).map_err(internal)?;
+    }
     let region = db::get_region(&conn, &code).map_err(internal)?.expect("just upserted");
     Ok(Json(region))
 }
@@ -144,6 +158,61 @@ async fn unsmash_region(
         return Err(err(StatusCode::NOT_FOUND, "unknown region"));
     };
     db::unsmash(&conn, &code, team_id).map_err(internal)?;
+    let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
+    Ok(Json(region))
+}
+
+/// Trims and collapses whitespace; tag names must be 1 to 30 characters.
+fn tag_name(raw: &str) -> Result<String, ApiError> {
+    let name = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    match name.chars().count() {
+        0 => Err(err(StatusCode::BAD_REQUEST, "tag name is empty")),
+        n if n > 30 => Err(err(StatusCode::BAD_REQUEST, "tag name longer than 30 characters")),
+        _ => Ok(name),
+    }
+}
+
+async fn list_tags(State(s): State<AppState>) -> Result<Json<Vec<db::Tag>>, ApiError> {
+    let conn = s.db.lock().map_err(internal)?;
+    db::list_tags(&conn).map(Json).map_err(internal)
+}
+
+#[derive(Deserialize)]
+struct TagBody {
+    name: String,
+}
+
+async fn create_tag(State(s): State<AppState>, Json(body): Json<TagBody>) -> Result<Json<db::Tag>, ApiError> {
+    let name = tag_name(&body.name)?;
+    let conn = s.db.lock().map_err(internal)?;
+    db::get_or_create_tag(&conn, &name).map(Json).map_err(internal)
+}
+
+async fn add_smash_tag(
+    State(s): State<AppState>,
+    Path((code, team_id)): Path<(String, i64)>,
+    Json(body): Json<TagBody>,
+) -> Result<Json<db::Region>, ApiError> {
+    let name = tag_name(&body.name)?;
+    let conn = s.db.lock().map_err(internal)?;
+    if !db::smash_exists(&conn, &code, team_id).map_err(internal)? {
+        return Err(err(StatusCode::NOT_FOUND, "this team has not smashed this region"));
+    }
+    let tag = db::get_or_create_tag(&conn, &name).map_err(internal)?;
+    db::add_smash_tag(&conn, &code, team_id, tag.id).map_err(internal)?;
+    let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
+    Ok(Json(region))
+}
+
+async fn remove_smash_tag(
+    State(s): State<AppState>,
+    Path((code, team_id, tag_id)): Path<(String, i64, i64)>,
+) -> Result<Json<db::Region>, ApiError> {
+    let conn = s.db.lock().map_err(internal)?;
+    let Some(_) = db::get_region(&conn, &code).map_err(internal)? else {
+        return Err(err(StatusCode::NOT_FOUND, "unknown region"));
+    };
+    db::remove_smash_tag(&conn, &code, team_id, tag_id).map_err(internal)?;
     let region = db::get_region(&conn, &code).map_err(internal)?.expect("exists");
     Ok(Json(region))
 }
